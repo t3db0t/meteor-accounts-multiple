@@ -196,26 +196,28 @@ Tinytest.add('AccountsMultiple - Multiple calls to register()', TestWithFixture(
   var f = this; // the fixture we are running in
 
   // Register some callbacks before
-  AccountsMultiple.register({
+  var stopper1 = AccountsMultiple.register({
     validateSwitch: function() { return true; },
     onSwitch: function() { },
     onSwitchFailure: function() { }
   });
+  f.after(function() { stopper1.stop(); } );
 
   // Register the ones we are going to spy one
-  var stopper = f.registerSpiedCallbacks(test, {
+  var stopper2 = f.registerSpiedCallbacks(test, {
     validateSwitch: function() { return true; },
     onSwitch: function() { },
     onSwitchFailure: function() { }
   });
-
+  f.after(function() { stopper2.stop(); } );
 
   // Register some more after
-  AccountsMultiple.register({
+  var stopper3 = AccountsMultiple.register({
     validateSwitch: function() { return true; },
     onSwitch: function() { },
     onSwitchFailure: function() { }
   });
+  f.after(function() { stopper3.stop(); } );
 
   // The extra callbacks shouldn't have any effect.
   f.testSwitchingUsersWithOverlap(test);
@@ -224,6 +226,45 @@ Tinytest.add('AccountsMultiple - Multiple calls to register()', TestWithFixture(
   test.equal(f.onSwitchSpy.calls.length, 2, 'onSwitch calls');
   f.checkArgs(test, f.onSwitchSpy, 'onSwitch args', 1);
   test.equal(f.onSwitchFailureSpy.calls.length, 0, 'onSwitchFailure calls');
+}));
+
+Meteor.methods({
+  clearUserId: function() {
+    this.setUserId(null);
+  }
+});
+
+Tinytest.add('AccountsMultiple - onSwitch not called for non-switching attempt on previously switching connection', TestWithFixture(function (test) {
+  var f = this; // the fixture we are running in
+
+  var stopper = f.registerSpiedCallbacks(test, {
+    validateSwitch: function() { return false; },
+    onSwitch: function() { },
+    onSwitchFailure: function() { }
+  });
+  f.after(function() { stopper.stop(); } );
+
+  // The extra callbacks shouldn't have any effect.
+  f.testSwitchingUsersWithOverlap(test, [403]);
+  test.equal(f.validateSwitchSpy.calls.length, 2, 'validateSwitch calls');
+  f.checkArgs(test, f.validateSwitchSpy, 'validateSwitch args', 0);
+  test.equal(f.onSwitchSpy.calls.length, 0, 'onSwitch calls');
+  test.equal(f.onSwitchFailureSpy.calls.length, 2, 'onSwitchFailure calls');
+  f.checkArgs(test, f.onSwitchFailureSpy, 'onSwitchFailure args', 1);
+
+  // If we clear the userId on the connection and then try to login,
+  // onSwitch should not fire because we aren't switching.
+  console.log('Calling clearUserId');
+  f.connection.call('clearUserId');
+  console.log('################## Calling login');
+  try {
+    var id = f.connection.call('login', { /* empty to cause error */ }).id;
+    f.after(function () { id && Meteor.users.remove(id); });
+  } catch (ex) {
+    console.log('Ignoring error: ' + ex);
+  }
+  console.log('################## Login finished');
+  test.equal(f.onSwitchFailureSpy.calls.length, 2, 'onSwitchFailure calls on non-switching failing login');
 }));
 
 Tinytest.add('AccountsMultiple - onSwitch called when validateSwitch not provided', TestWithFixture(function (test) {

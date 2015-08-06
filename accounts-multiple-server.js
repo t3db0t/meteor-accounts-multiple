@@ -1,36 +1,57 @@
-var Fiber = Npm.require('fibers');
-
 AccountsMultiple = {};
+
+// Get/set the attempting user associated with an attempt. We store it in
+// DDP._CurrentInvocation.get() because that appears to have been designed for
+// exactly this job.
+// NOTE: We do NOT store it on on attempt.connection or Fiber.current
+// because:
+// 1) we'd need to clear the attempting user in both an onLogin and an
+//    onLoginFailure callback that is always present, and
+// 2) we'd need to store a separate attempting user for each callback set
+//    registered, so that a callback from one set doesn't clear the attempted
+//    user before a callback from another set runs, and
+// 3) if we use attempt.connection, we'd need to ensure that multiple Fibers
+//    can't handle login attempts on the same connection simultaneously. This
+//    might be true, I just don't know.
+AttemptingUser = {
+  get: function (attempt) {
+    return DDP._CurrentInvocation.get().accountsMultipleAttemptingUser;
+  },
+
+  set: function (attempt, user) {
+    DDP._CurrentInvocation.get().accountsMultipleAttemptingUser = user;
+  }
+};
 
 AccountsMultiple.register = function(cbs) {
   var validateLoginStopper, onLoginStopper, onLoginFailureStopper;
   // If any of the callbacks is provided, we need to register a
   // validateLoginAttempt handler to at least capture the attempting user.
-  if (cbs.validateSwitch || cbs.onSwitch || cbs.onSwitchFailure) {
-    // Use an empty validateSwitch callback if necessary
-    var cb = cbs.validateSwitch || function () { return true; };
-    // Workaround a meteor bug when adding the validateLoginAttempt handler
-    WithoutBindingEnvironment(function() {
-      validateLoginStopper =
-        Accounts.validateLoginAttempt(createValidateLoginAttemptHandler(cb));
-    });
-  }
-  if (cbs.onSwitch) {
-    onLoginStopper = Accounts.onLogin(function(attempt) {
-      var attemptingUser = Fiber.current.accountsMultipleAttemptingUser;
-      if (attemptingUser) {
-        return cbs.onSwitch(attemptingUser, attempt);
-      }
-    });
-  }
-  if (cbs.onSwitchFailure) {
-    onLoginFailureStopper = Accounts.onLoginFailure(function(attempt) {
-      var attemptingUser = Fiber.current.accountsMultipleAttemptingUser;
-      if (attemptingUser) {
-        return cbs.onSwitchFailure(attemptingUser, attempt);
-      }
-    });
-  }
+  WithoutBindingEnvironment(function() {
+    if (cbs.validateSwitch || cbs.onSwitch || cbs.onSwitchFailure) {
+      // Use an empty validateSwitch callback if necessary
+      var cb = cbs.validateSwitch || function () { return true; };
+      // Workaround a meteor bug when adding the validateLoginAttempt handler
+        validateLoginStopper =
+          Accounts.validateLoginAttempt(createValidateLoginAttemptHandler(cb));
+    }
+    if (cbs.onSwitch) {
+      onLoginStopper = Accounts.onLogin(function(attempt) {
+        var attemptingUser = AttemptingUser.get(attempt);
+        if (attemptingUser) {
+          return cbs.onSwitch(attemptingUser, attempt);
+        }
+      });
+    }
+    if (cbs.onSwitchFailure) {
+      onLoginFailureStopper = Accounts.onLoginFailure(function(attempt) {
+        var attemptingUser = AttemptingUser.get(attempt);
+        if (attemptingUser) {
+          return cbs.onSwitchFailure(attemptingUser, attempt);
+        }
+      });
+    }
+  });
   return {
     stop: function() {
       validateLoginStopper && validateLoginStopper.stop();
@@ -68,10 +89,10 @@ function createValidateLoginAttemptHandler(validateSwitchCallback) {
       return true;
     }
 
-    // Save the attempting user associated with the current login to the
-    // current fiber so that our onSwitch and onSwitchFailure callbacks
+    // Save the attempting user associated with the current login
+    // so that our onSwitch and onSwitchFailure callbacks
     // can access it.
-    Fiber.current.accountsMultipleAttemptingUser = attemptingUser;
+    AttemptingUser.set(attempt, attemptingUser);
     // This is the case we care about. A logged in user is attempting to login
     // to a new service.
     return validateSwitchCallback(attemptingUser, attempt);
