@@ -252,18 +252,15 @@ Tinytest.add('AccountsMultiple - onSwitch not called for non-switching attempt o
   test.equal(f.onSwitchFailureSpy.calls.length, 2, 'onSwitchFailure calls');
   f.checkArgs(test, f.onSwitchFailureSpy, 'onSwitchFailure args', 1);
 
-  // If we clear the userId on the connection and then try to login,
-  // onSwitch should not fire because we aren't switching.
-  console.log('Calling clearUserId');
+  // If we clear the userId on the connection and then try to do a bogus login,
+  // onSwitchFailure should not fire because we aren't switching.
   f.connection.call('clearUserId');
-  console.log('################## Calling login');
   try {
     var id = f.connection.call('login', { /* empty to cause error */ }).id;
     f.after(function () { id && Meteor.users.remove(id); });
   } catch (ex) {
-    console.log('Ignoring error: ' + ex);
+    // Ignore expected error.
   }
-  console.log('################## Login finished');
   test.equal(f.onSwitchFailureSpy.calls.length, 2, 'onSwitchFailure calls on non-switching failing login');
 }));
 
