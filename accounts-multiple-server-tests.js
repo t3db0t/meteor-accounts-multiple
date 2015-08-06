@@ -192,6 +192,40 @@ Tinytest.add('AccountsMultiple - Remove registered callbacks', TestWithFixture(f
   test.equal(f.onSwitchFailureSpy.calls.length, 0, 'onSwitchFailure calls');
 }));
 
+Tinytest.add('AccountsMultiple - Multiple calls to register()', TestWithFixture(function (test) {
+  var f = this; // the fixture we are running in
+
+  // Register some callbacks before
+  AccountsMultiple.register({
+    validateSwitch: function() { return true; },
+    onSwitch: function() { },
+    onSwitchFailure: function() { }
+  });
+
+  // Register the ones we are going to spy one
+  var stopper = f.registerSpiedCallbacks(test, {
+    validateSwitch: function() { return true; },
+    onSwitch: function() { },
+    onSwitchFailure: function() { }
+  });
+
+
+  // Register some more after
+  AccountsMultiple.register({
+    validateSwitch: function() { return true; },
+    onSwitch: function() { },
+    onSwitchFailure: function() { }
+  });
+
+  // The extra callbacks shouldn't have any effect.
+  f.testSwitchingUsersWithOverlap(test);
+  test.equal(f.validateSwitchSpy.calls.length, 2, 'validateSwitch calls');
+  f.checkArgs(test, f.validateSwitchSpy, 'validateSwitch args', 0);
+  test.equal(f.onSwitchSpy.calls.length, 2, 'onSwitch calls');
+  f.checkArgs(test, f.onSwitchSpy, 'onSwitch args', 1);
+  test.equal(f.onSwitchFailureSpy.calls.length, 0, 'onSwitchFailure calls');
+}));
+
 Tinytest.add('AccountsMultiple - onSwitch called when validateSwitch not provided', TestWithFixture(function (test) {
   var f = this; // the fixture we are running in
   var stopper = f.registerSpiedCallbacks(test, {

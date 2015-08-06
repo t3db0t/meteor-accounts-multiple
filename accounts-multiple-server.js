@@ -18,7 +18,6 @@ AccountsMultiple.register = function(cbs) {
   if (cbs.onSwitch) {
     onLoginStopper = Accounts.onLogin(function(attempt) {
       var attemptingUser = Fiber.current.accountsMultipleAttemptingUser;
-      Fiber.current.accountsMultipleAttemptingUser = null;
       if (attemptingUser) {
         return cbs.onSwitch(attemptingUser, attempt);
       }
@@ -27,7 +26,6 @@ AccountsMultiple.register = function(cbs) {
   if (cbs.onSwitchFailure) {
     onLoginFailureStopper = Accounts.onLoginFailure(function(attempt) {
       var attemptingUser = Fiber.current.accountsMultipleAttemptingUser;
-      Fiber.current.accountsMultipleAttemptingUser = null;
       if (attemptingUser) {
         return cbs.onSwitchFailure(attemptingUser, attempt);
       }
@@ -45,9 +43,6 @@ AccountsMultiple.register = function(cbs) {
 
 function createValidateLoginAttemptHandler(validateSwitchCallback) {
   return function (attempt) {
-    // By default, this Fiber has no attempting user.
-    Fiber.current.accountsMultipleAttemptingUser = null;
-
     // Don't override invalid login attempt
     if (!attempt.allowed)
       return false;
