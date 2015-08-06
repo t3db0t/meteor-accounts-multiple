@@ -4,10 +4,15 @@ AccountsMultiple = {};
 
 AccountsMultiple.register = function(cbs) {
   var validateLoginStopper, onLoginStopper, onLoginFailureStopper;
-  if (cbs.validateSwitch) {
+  // If any of the callbacks is provided, we need to register a
+  // validateLoginAttempt handler to at least capture the attempting user.
+  if (cbs.validateSwitch || cbs.onSwitch || cbs.onSwitchFailure) {
+    // Use an empty validateSwitch callback if necessary
+    var cb = cbs.validateSwitch || function () { return true; };
+    // Workaround a meteor bug when adding the validateLoginAttempt handler
     WithoutBindingEnvironment(function() {
       validateLoginStopper =
-        Accounts.validateLoginAttempt(createValidateLoginAttemptHandler(cbs.validateSwitch));
+        Accounts.validateLoginAttempt(createValidateLoginAttemptHandler(cb));
     });
   }
   if (cbs.onSwitch) {
