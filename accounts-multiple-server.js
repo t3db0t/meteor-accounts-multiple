@@ -70,7 +70,7 @@ function createValidateLoginAttemptHandler(validateSwitchCallback) {
       return attempt.allowed;
     }
 
-    var attemptingUserId = Meteor.user();
+    var attemptingUserId = Meteor.userId();
 
     // Don't do anything if there is no user currently logged in or they are
     // attempting to login as themselves.

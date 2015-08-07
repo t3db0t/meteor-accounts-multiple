@@ -1,3 +1,50 @@
+Accounts.registerLoginHandler("test1", function (options) {
+    if (! options || ! options.test1) {
+      return undefined;
+    }
+    var user = Meteor.users.findOne({ 'services.test1.name': options.test1 });
+    if (user) {
+      return { userId: user._id };
+    }
+    var newUserId = Accounts.insertUserDoc(options, {
+      profile: {
+        doNotOverride: options.test1
+      },
+      services: {
+        test1: {
+          name: options.test1
+        }
+      }
+    });
+    return {
+        userId: newUserId
+    };
+});
+
+Accounts.registerLoginHandler("test2", function (options) {
+    if (! options || ! options.test2) {
+      return undefined;
+    }
+    var user = Meteor.users.findOne({ 'services.test2.name': options.test2 });
+    if (user) {
+      return { userId: user._id };
+    }
+    var newUserId = Accounts.insertUserDoc(options, {
+      profile: {
+        doNotOverride: options.test2,
+        specificToTest2: options.test2
+      },
+      services: {
+        test2: {
+          name: options.test2
+        }
+      }
+    });
+    return {
+        userId: newUserId
+    };
+});
+
 
 // Returns a test function that wraps the original test function with common
 // setup, try, and teardown in finally
@@ -253,6 +300,52 @@ Tinytest.add('AccountsMultiple - validateSwitch callbacks can override errors th
   f.checkArgs(test, f.validateSwitchSpy, 'validateSwitch args', 0);
   test.equal(f.onSwitchFailureSpy.calls.length, 2, 'onSwitchFailure calls');
   f.checkArgs(test, f.onSwitchFailureSpy, 'onSwitchFailure args', 1);
+}));
+
+Tinytest.add('AccountsMultiple - validateSwitch callback not called when logging in as same user', TestWithFixture(function (test) {
+  var f = this; // the fixture we are running in
+
+  // Register our callbacks
+  var stopper = f.registerSpiedCallbacks(test, {
+    validateSwitch: function() { return true; },
+    onSwitch: function() { },
+    onSwitchFailure: function() { }
+  });
+  f.after(function() { stopper.stop(); } );
+
+
+  f.connection.call('logout');
+  Meteor.users.remove({'services.test1.name': 'testname'});
+  f.connection.call('login', { test1: 'testname' }).id;
+  f.connection.call('login', { test1: 'testname' }).id;
+
+  // Our callbacks should not have been called because we are still the same user
+  test.equal(f.validateSwitchSpy.calls.length, 0, 'validateSwitch calls');
+  test.equal(f.onSwitchSpy.calls.length, 0, 'onSwitch calls');
+  test.equal(f.onSwitchFailureSpy.calls.length, 0, 'onSwitchFailure calls');
+}));
+
+Tinytest.add('AccountsMultiple - validateSwitch callback not called on when same service', TestWithFixture(function (test) {
+  var f = this; // the fixture we are running in
+
+  // Register our callbacks
+  var stopper = f.registerSpiedCallbacks(test, {
+    validateSwitch: function() { return true; },
+    onSwitch: function() { },
+    onSwitchFailure: function() { }
+  });
+  f.after(function() { stopper.stop(); } );
+
+
+  f.connection.call('logout');
+  var id = f.connection.call('createUser', { email: 'testuser@example.com', password: 'password' }).id;
+  var id2 = f.connection.call('createUser', { email: 'testuser2@example.com', password: 'password' }).id;
+
+  // Our callbacks should not have been called because we are changing users in
+  // the same service
+  test.equal(f.validateSwitchSpy.calls.length, 0, 'validateSwitch calls');
+  test.equal(f.onSwitchSpy.calls.length, 0, 'onSwitch calls');
+  test.equal(f.onSwitchFailureSpy.calls.length, 0, 'onSwitchFailure calls');
 }));
 
 Meteor.methods({
