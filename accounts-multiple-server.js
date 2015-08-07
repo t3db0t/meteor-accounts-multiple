@@ -64,21 +64,18 @@ AccountsMultiple.register = function(cbs) {
 
 function createValidateLoginAttemptHandler(validateSwitchCallback) {
   return function (attempt) {
-    // Don't override invalid login attempt
-    if (!attempt.allowed)
-      return false;
-
     // Don't do anything if the login handler can't even provide a user object
     // or a method name.
-    if (!attempt.user || !attempt.methodName)
-      return true;
+    if (!attempt.user || !attempt.methodName) {
+      return attempt.allowed;
+    }
 
     var attemptingUserId = Meteor.user();
 
     // Don't do anything if there is no user currently logged in or they are
     // attempting to login as themselves.
     if (! attemptingUserId || attempt.user._id === attemptingUserId) {
-      return true;
+      return attempt.allowed;
     }
 
     var attemptingUser = Meteor.users.findOne(attemptingUserId);
@@ -86,7 +83,7 @@ function createValidateLoginAttemptHandler(validateSwitchCallback) {
     // Don't do anything if the logged in user already has credentials on
     // the service
     if (attemptingUser.services && attemptingUser.services[attempt.type]) {
-      return true;
+      return attempt.allowed;
     }
 
     // Save the attempting user associated with the current login

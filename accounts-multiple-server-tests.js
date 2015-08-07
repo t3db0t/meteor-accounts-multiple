@@ -228,6 +228,33 @@ Tinytest.add('AccountsMultiple - Multiple calls to register()', TestWithFixture(
   test.equal(f.onSwitchFailureSpy.calls.length, 0, 'onSwitchFailure calls');
 }));
 
+Tinytest.add('AccountsMultiple - validateSwitch callbacks can override errors thrown by previous callbacks', TestWithFixture(function (test) {
+  var f = this; // the fixture we are running in
+
+  // Register some callbacks before
+  var stopper1 = AccountsMultiple.register({
+    validateSwitch: function() { throw new Meteor.Error('test-error-1'); },
+    onSwitch: function() { },
+    onSwitchFailure: function() { }
+  });
+  f.after(function() { stopper1.stop(); } );
+
+  // Register the ones we are going to spy one
+  var stopper2 = f.registerSpiedCallbacks(test, {
+    validateSwitch: function() { throw new Meteor.Error('test-error-2'); },
+    onSwitch: function() { },
+    onSwitchFailure: function() { }
+  });
+  f.after(function() { stopper2.stop(); } );
+
+  // The extra callbacks shouldn't have any effect.
+  f.testSwitchingUsersWithOverlap(test, ['test-error-2']);
+  test.equal(f.validateSwitchSpy.calls.length, 2, 'validateSwitch calls');
+  f.checkArgs(test, f.validateSwitchSpy, 'validateSwitch args', 0);
+  test.equal(f.onSwitchFailureSpy.calls.length, 2, 'onSwitchFailure calls');
+  f.checkArgs(test, f.onSwitchFailureSpy, 'onSwitchFailure args', 1);
+}));
+
 Meteor.methods({
   clearUserId: function() {
     this.setUserId(null);
