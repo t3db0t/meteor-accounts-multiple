@@ -66,19 +66,22 @@ function createValidateLoginAttemptHandler(validateSwitchCallback) {
   return function (attempt) {
     // Don't do anything if the login handler can't even provide a user object
     // or a method name.
-    if (!attempt.user || !attempt.methodName) {
+    if (! attempt.user || ! attempt.methodName) {
       return attempt.allowed;
     }
 
-    var attemptingUserId = Meteor.userId();
+    var attemptingUser = AttemptingUser.get(attempt);
 
-    // Don't do anything if there is no user currently logged in or they are
-    // attempting to login as themselves.
-    if (! attemptingUserId || attempt.user._id === attemptingUserId) {
-      return attempt.allowed;
+    if (! attemptingUser) {
+      var attemptingUserId = Meteor.userId();
+
+      // Don't do anything if there is no user currently logged in or they are
+      // attempting to login as themselves.
+      if (! attemptingUserId || attempt.user._id === attemptingUserId) {
+        return attempt.allowed;
+      }
+      attemptingUser = Meteor.users.findOne(attemptingUserId);
     }
-
-    var attemptingUser = Meteor.users.findOne(attemptingUserId);
 
     // Don't do anything if the logged in user already has credentials on
     // the service
