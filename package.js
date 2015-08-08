@@ -17,6 +17,7 @@ Package.onUse(function(api) {
 
 Package.onTest(function(api) {
   api.use('brettle:accounts-multiple');
+  api.use('brettle:accounts-testing-support');
   api.use('brettle:accounts-anonymous');
   api.use('tinytest');
   api.use('underscore');
