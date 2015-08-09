@@ -1,4 +1,4 @@
-# accounts-multiple
+# brettle:accounts-multiple
 
 [![Build Status](https://travis-ci.org/brettle/meteor-accounts-multiple.svg?branch=master)](https://travis-ci.org/brettle/meteor-accounts-multiple)
 
