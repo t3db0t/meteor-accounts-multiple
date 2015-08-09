@@ -2,7 +2,7 @@ Package.describe({
   name: 'brettle:accounts-multiple',
   version: '0.0.1',
   summary: 'Handles users that login with multiple services.',
-  git: 'git@github.com:brettle/meteor-accounts-multiple.git',
+  git: 'https://github.com/brettle/meteor-accounts-multiple.git',
   documentation: 'README.md'
 });
 
