@@ -1,5 +1,7 @@
 # accounts-multiple
 
+[![Build Status](https://travis-ci.org/brettle/meteor-accounts-multiple.svg?branch=master)](https://travis-ci.org/brettle/meteor-accounts-multiple)
+
 Supports handling the case where a logged in user attempts to login using a
 different service.
 
