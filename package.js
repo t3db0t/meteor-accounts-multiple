@@ -10,7 +10,6 @@ Package.onUse(function(api) {
   api.versionsFrom('1.1.0.2');
   api.use('accounts-base', 'server');
   api.use('underscore', 'server');
-  api.use('oauth-encryption', 'server', 'weak');
   api.addFiles('accounts-multiple-server.js', 'server');
   api.export('AccountsMultiple');
 });
