@@ -1,5 +1,4 @@
 # accounts-multiple
-============
 
 Supports handling the case where a logged in user attempts to login using a
 different service.
