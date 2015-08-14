@@ -1,4 +1,6 @@
-AccountsMultiple = {};
+AccountsMultiple = {
+  _stoppers: []
+};
 
 // Get/set the attempting user associated with an attempt. We store it in
 // DDP._CurrentInvocation.get() because that appears to have been designed for
@@ -13,7 +15,7 @@ AccountsMultiple = {};
 // 3) if we use attempt.connection, we'd need to ensure that multiple Fibers
 //    can't handle login attempts on the same connection simultaneously. This
 //    might be true, I just don't know.
-AttemptingUser = {
+var AttemptingUser = {
   get: function (attempt) {
     return DDP._CurrentInvocation.get().accountsMultipleAttemptingUser;
   },
@@ -52,7 +54,7 @@ AccountsMultiple.register = function(cbs) {
       });
     }
   });
-  return {
+  var stopper = {
     stop: function() {
       validateLoginStopper && validateLoginStopper.stop();
       onLoginStopper && onLoginStopper.stop();
@@ -60,7 +62,16 @@ AccountsMultiple.register = function(cbs) {
       validateLoginStopper = onLoginStopper = onLoginFailureStopper = null;
     }
   }
+  AccountsMultiple._stoppers.push(stopper);
+  return stopper;
 };
+
+AccountsMultiple._unregisterAll = function() {
+  _.each(AccountsMultiple._stoppers, function (stopper) {
+    stopper.stop();
+  });
+  AccountsMultiple._stoppers = [];
+}
 
 function createValidateLoginAttemptHandler(validateSwitchCallback) {
   return function (attempt) {

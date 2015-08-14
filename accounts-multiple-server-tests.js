@@ -2,6 +2,7 @@
 // setup, try, and teardown in finally
 function TestWithFixture(func) {
   return function(test) {
+    AccountsMultiple._unregisterAll();
     var f = new MyTestFixture;
     f.debugCalls = 0;
     var origDebug = Meteor._debug;
