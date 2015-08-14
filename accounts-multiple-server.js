@@ -103,6 +103,7 @@ function createValidateLoginAttemptHandler(validateSwitchCallback) {
    See https://github.com/meteor/meteor/issues/4862.
  */
 function WithoutBindingEnvironment(func) {
+  // TODO: if meteor version >= 1.2, this issues is fixed, so just return func.
   var saved = Meteor.bindEnvironment;
   try {
     Meteor.bindEnvironment = dontBindEnvironment;
