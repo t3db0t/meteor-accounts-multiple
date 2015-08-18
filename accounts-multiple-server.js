@@ -32,31 +32,29 @@ AccountsMultiple.register = function(cbs) {
   var validateLoginStopper, onLoginStopper, onLoginFailureStopper;
   // If any of the callbacks is provided, we need to register a
   // validateLoginAttempt handler to at least capture the attempting user.
-  WithoutBindingEnvironment(function() {
-    if (cbs.validateSwitch || cbs.onSwitch || cbs.onSwitchFailure) {
-      // Use an empty validateSwitch callback if necessary
-      var cb = cbs.validateSwitch || function () { return true; };
-      // Workaround a meteor bug when adding the validateLoginAttempt handler
-        validateLoginStopper =
-          Accounts.validateLoginAttempt(createValidateLoginAttemptHandler(cb));
-    }
-    if (cbs.onSwitch) {
-      onLoginStopper = Accounts.onLogin(function(attempt) {
-        var attemptingUser = AttemptingUser.get(attempt);
-        if (attemptingUser) {
-          return cbs.onSwitch(attemptingUser, attempt);
-        }
-      });
-    }
-    if (cbs.onSwitchFailure) {
-      onLoginFailureStopper = Accounts.onLoginFailure(function(attempt) {
-        var attemptingUser = AttemptingUser.get(attempt);
-        if (attemptingUser) {
-          return cbs.onSwitchFailure(attemptingUser, attempt);
-        }
-      });
-    }
-  });
+  if (cbs.validateSwitch || cbs.onSwitch || cbs.onSwitchFailure) {
+    // Use an empty validateSwitch callback if necessary
+    var cb = cbs.validateSwitch || function () { return true; };
+    // Workaround a meteor bug when adding the validateLoginAttempt handler
+      validateLoginStopper =
+        Accounts.validateLoginAttempt(createValidateLoginAttemptHandler(cb));
+  }
+  if (cbs.onSwitch) {
+    onLoginStopper = Accounts.onLogin(function(attempt) {
+      var attemptingUser = AttemptingUser.get(attempt);
+      if (attemptingUser) {
+        return cbs.onSwitch(attemptingUser, attempt);
+      }
+    });
+  }
+  if (cbs.onSwitchFailure) {
+    onLoginFailureStopper = Accounts.onLoginFailure(function(attempt) {
+      var attemptingUser = AttemptingUser.get(attempt);
+      if (attemptingUser) {
+        return cbs.onSwitchFailure(attemptingUser, attempt);
+      }
+    });
+  }
   var stopper = {
     stop: function() {
       if (validateLoginStopper) { validateLoginStopper.stop(); }
@@ -111,48 +109,4 @@ function createValidateLoginAttemptHandler(validateSwitchCallback) {
     // to a new service.
     return validateSwitchCallback(attemptingUser, attempt);
   };
-}
-
-/* Workaround for Meteor issue #4862:
-   See https://github.com/meteor/meteor/issues/4862.
- */
-function WithoutBindingEnvironment(func) {
-  // TODO: if meteor version >= 1.2, this issues is fixed, so just return func.
-  var saved = Meteor.bindEnvironment;
-  try {
-    Meteor.bindEnvironment = dontBindEnvironment;
-    return func();
-  } finally {
-    Meteor.bindEnvironment = saved;
-  }
-  return;
-
-  // Copied from Meteor.bindEnvironment and removed all the env stuff.
-  function dontBindEnvironment(func, onException, _this) {
-    if (!onException || typeof(onException) === 'string') {
-      var description = onException || "callback of async function";
-      onException = function (error) {
-        Meteor._debug(
-          "Exception in " + description + ":",
-          error && error.stack || error
-        );
-      };
-    }
-
-    return function (/* arguments */) {
-      var args = _.toArray(arguments);
-
-      var runAndHandleExceptions = function () {
-        var ret;
-        try {
-          ret = func.apply(_this, args);
-        } catch (e) {
-          onException(e);
-        }
-        return ret;
-      };
-
-      return runAndHandleExceptions();
-    };
-  }
 }

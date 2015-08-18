@@ -2,7 +2,7 @@
 
 Package.describe({
   name: 'brettle:accounts-multiple',
-  version: '0.2.0',
+  version: '0.3.0',
   summary: 'Handles users that login with multiple services.',
   git: 'https://github.com/brettle/meteor-accounts-multiple.git',
   documentation: 'README.md'
@@ -10,8 +10,8 @@ Package.describe({
 
 Package.onUse(function(api) {
   api.versionsFrom('1.0.4');
-  api.use('accounts-base', 'server');
   api.use('underscore', 'server');
+  api.use('brettle:workaround-issue-4862@0.0.1', 'server');
   api.addFiles('accounts-multiple-server.js', 'server');
   api.export('AccountsMultiple');
 });
