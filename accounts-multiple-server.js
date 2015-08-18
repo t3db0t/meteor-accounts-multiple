@@ -1,3 +1,6 @@
+/* globals AccountsMultiple: true */
+"use strict";
+
 AccountsMultiple = {
   _stoppers: []
 };
@@ -16,7 +19,7 @@ AccountsMultiple = {
 //    can't handle login attempts on the same connection simultaneously. This
 //    might be true, I just don't know.
 var AttemptingUser = {
-  get: function (attempt) {
+  get: function (/* attempt (unused) */) {
     return DDP._CurrentInvocation.get().accountsMultipleAttemptingUser;
   },
 
@@ -56,12 +59,12 @@ AccountsMultiple.register = function(cbs) {
   });
   var stopper = {
     stop: function() {
-      validateLoginStopper && validateLoginStopper.stop();
-      onLoginStopper && onLoginStopper.stop();
-      onLoginFailureStopper && onLoginFailureStopper.stop();
+      if (validateLoginStopper) { validateLoginStopper.stop(); }
+      if (onLoginStopper) { onLoginStopper.stop(); }
+      if (onLoginFailureStopper) { onLoginFailureStopper.stop(); }
       validateLoginStopper = onLoginStopper = onLoginFailureStopper = null;
     }
-  }
+  };
   AccountsMultiple._stoppers.push(stopper);
   return stopper;
 };
@@ -71,7 +74,7 @@ AccountsMultiple._unregisterAll = function() {
     stopper.stop();
   });
   AccountsMultiple._stoppers = [];
-}
+};
 
 function createValidateLoginAttemptHandler(validateSwitchCallback) {
   return function (attempt) {
@@ -140,8 +143,9 @@ function WithoutBindingEnvironment(func) {
       var args = _.toArray(arguments);
 
       var runAndHandleExceptions = function () {
+        var ret;
         try {
-          var ret = func.apply(_this, args);
+          ret = func.apply(_this, args);
         } catch (e) {
           onException(e);
         }

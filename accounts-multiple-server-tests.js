@@ -1,13 +1,16 @@
+/* globals AccountsMultiple */
+"use strict";
+
 // Returns a test function that wraps the original test function with common
 // setup, try, and teardown in finally
 function TestWithFixture(func) {
   return function(test) {
     AccountsMultiple._unregisterAll();
-    var f = new MyTestFixture;
+    var f = new MyTestFixture();
     f.debugCalls = 0;
     var origDebug = Meteor._debug;
     Meteor._debug = function(/*arguments*/) {
-      f.debugCalls++
+      f.debugCalls++;
       origDebug.apply(this, arguments);
     };
     f.after(function () { Meteor._debug = origDebug; });
@@ -18,20 +21,20 @@ function TestWithFixture(func) {
     Meteor.users.remove({'emails.address': 'testuser3@example.com'});
 
     try {
-      f.connection = DDP.connect(Meteor.absoluteUrl());
-      f.after(function () { f.connection && f.connection.disconnect(); })
+      f.conn = DDP.connect(Meteor.absoluteUrl());
+      f.after(function () { if (f.conn) { f.conn.disconnect(); } });
 
-      f.id = f.connection.call('login', { anonymous: true }).id;
-      f.after(function () { f.id && Meteor.users.remove(f.id); });
+      f.id = f.conn.call('login', { anonymous: true }).id;
+      f.after(function () { if (f.id) { Meteor.users.remove(f.id); } });
 
       test.equal(f.debugCalls, 0);
       f.attemptingUser = Meteor.users.findOne(f.id);
 
-      f.connection2 = DDP.connect(Meteor.absoluteUrl());
-      f.after(function () { f.connection2 && f.connection2.disconnect(); })
+      f.conn2 = DDP.connect(Meteor.absoluteUrl());
+      f.after(function () { if (f.conn2) { f.conn2.disconnect(); } });
 
-      f.id2 = f.connection2.call('login', { anonymous: true }).id;
-      f.after(function () { f.id2 && Meteor.users.remove(f.id2); });
+      f.id2 = f.conn2.call('login', { anonymous: true }).id;
+      f.after(function () { if (f.id2) { Meteor.users.remove(f.id2); } });
 
       // Call the test function
       func.apply(f, arguments);
@@ -45,7 +48,7 @@ function TestWithFixture(func) {
         }
       }
     }
-  }
+  };
 }
 
 function MyTestFixture() {
@@ -59,7 +62,6 @@ _.extend(MyTestFixture.prototype, {
   overlapNextLogin: function (test, expectedErrors) {
     var f = this;
     expectedErrors = expectedErrors || [];
-    var connection = DDP.connect(Meteor.absoluteUrl());
     var pwId;
     // Remove the users we use in case another test left them around
     Meteor.users.remove({'emails.address': 'overlap@example.com'});
@@ -74,13 +76,15 @@ _.extend(MyTestFixture.prototype, {
       validateLoginStopper.stop();
 
       try {
-        // As an anonymous user on a separate connection, create and log in as a non-anonymous user.
-        pwId = f.connection2.call('createUser', { email: 'overlap@example.com', password: 'password' }).id;
-        f.after(function () { pwId && Meteor.users.remove(pwId); });
+        // As an anonymous user on a separate connection, create and log in as a
+        // non-anonymous user.
+        pwId = f.conn2.call('createUser',
+          { email: 'overlap@example.com', password: 'password' }
+        ).id;
+        f.after(function () { if (pwId) { Meteor.users.remove(pwId); } });
       } catch (ex) {
-        if (ex instanceof Meteor.Error && _.contains(expectedErrors, ex.error)) {
-            //console.log('Ignoring expected error: ' + EJSON.stringify(ex));
-        } else {
+        if (!(ex instanceof Meteor.Error) ||
+          ! _.contains(expectedErrors, ex.error)) {
           throw ex;
         }
       }
@@ -97,18 +101,19 @@ _.extend(MyTestFixture.prototype, {
       f.overlapNextLogin(test, expectedErrors);
       try {
         // Switch to a new user
-        id2 = f.connection.call('createUser', { email: 'testuser2@example.com', password: 'password' }).id;
+        id2 = f.conn.call('createUser',
+          { email: 'testuser2@example.com', password: 'password' }
+        ).id;
       } catch (ex) {
-        if (ex instanceof Meteor.Error && _.contains(expectedErrors, ex.error)) {
-            // console.log('Ignoring error: ' + EJSON.stringify(ex));
-        } else {
+        if (!(ex instanceof Meteor.Error) ||
+          ! _.contains(expectedErrors, ex.error)) {
           throw ex;
         }
       }
       test.equal(f.debugCalls, 0);
       f.attemptedUser = Meteor.users.findOne(id2);
     } finally {
-      id2 && Meteor.users.remove(id2);
+      if (id2) { Meteor.users.remove(id2); }
     }
   },
 
@@ -116,10 +121,12 @@ _.extend(MyTestFixture.prototype, {
     var f = this;
     callNumber = callNumber || 0;
     if (f.attemptingUser) {
-      test.equal(spy.calls[callNumber].args[0]._id, f.attemptingUser._id, prefix + ': attemptingUser');
+      test.equal(spy.calls[callNumber].args[0]._id,
+        f.attemptingUser._id, prefix + ': attemptingUser');
     }
     if (f.attemptedUser) {
-      test.equal(spy.calls[callNumber].args[1].user._id, f.attemptedUser._id, prefix + ': attemptedUser');
+      test.equal(spy.calls[callNumber].args[1].user._id,
+        f.attemptedUser._id, prefix + ': attemptedUser');
     }
   },
 
@@ -133,7 +140,7 @@ _.extend(MyTestFixture.prototype, {
       var spyingFunc = function(/*arguments*/) {
         spyingFunc.calls.push({ thisArg: this, args: arguments });
         return func.apply(this, arguments);
-      }
+      };
       spyingFunc.calls = [];
       return spyingFunc;
     }
@@ -154,152 +161,177 @@ _.extend(MyTestFixture.prototype, {
   }
 });
 
-Tinytest.add('AccountsMultiple - AccountsMultiple.register() never called', TestWithFixture(function (test) {
-  var f = this; // the fixture we are running in
-  f.testSwitchingUsersWithOverlap(test);
-}));
+Tinytest.add(
+  'AccountsMultiple - AccountsMultiple.register() never called',
+  TestWithFixture(function (test) {
+    var f = this; // the fixture we are running in
+    f.testSwitchingUsersWithOverlap(test);
+  })
+);
 
-Tinytest.add('AccountsMultiple - AccountsMultiple.register({}) works', TestWithFixture(function (test) {
-  var f = this; // the fixture we are running in
-  var stopper = AccountsMultiple.register({});
-  f.after(function() { stopper.stop(); });
-  f.testSwitchingUsersWithOverlap(test);
-}));
+Tinytest.add(
+  'AccountsMultiple - AccountsMultiple.register({}) works',
+   TestWithFixture(function (test) {
+    var f = this; // the fixture we are running in
+    var stopper = AccountsMultiple.register({});
+    f.after(function() { stopper.stop(); });
+    f.testSwitchingUsersWithOverlap(test);
+  })
+);
 
-Tinytest.add('AccountsMultiple - Remove registered callbacks', TestWithFixture(function (test) {
-  var f = this; // the fixture we are running in
-  var stopper = f.registerSpiedCallbacks(test, {
-    validateSwitch: function() { return true; },
-    onSwitch: function() { },
-    onSwitchFailure: function() { }
-  });
-  f.testSwitchingUsersWithOverlap(test);
-  test.equal(f.validateSwitchSpy.calls.length, 2, 'validateSwitch calls');
-  f.checkArgs(test, f.validateSwitchSpy, 'validateSwitch args', 0);
-  test.equal(f.onSwitchSpy.calls.length, 2, 'onSwitch calls');
-  f.checkArgs(test, f.onSwitchSpy, 'onSwitch args', 1);
-  test.equal(f.onSwitchFailureSpy.calls.length, 0, 'onSwitchFailure calls');
+Tinytest.add(
+  'AccountsMultiple - Remove registered callbacks',
+  TestWithFixture(function (test) {
+    var f = this; // the fixture we are running in
+    var stopper = f.registerSpiedCallbacks(test, {
+      validateSwitch: function() { return true; },
+      onSwitch: function() { },
+      onSwitchFailure: function() { }
+    });
+    f.testSwitchingUsersWithOverlap(test);
+    test.equal(f.validateSwitchSpy.calls.length, 2, 'validateSwitch calls');
+    f.checkArgs(test, f.validateSwitchSpy, 'validateSwitch args', 0);
+    test.equal(f.onSwitchSpy.calls.length, 2, 'onSwitch calls');
+    f.checkArgs(test, f.onSwitchSpy, 'onSwitch args', 1);
+    test.equal(f.onSwitchFailureSpy.calls.length, 0, 'onSwitchFailure calls');
 
-  stopper.stop();
+    stopper.stop();
 
-  var connection = DDP.connect(Meteor.absoluteUrl());
-  f.after(function () { connection && connection.disconnect(); })
-  var id = connection.call('login', { anonymous: true }).id;
-  f.after(function () { id && Meteor.users.remove(id); });
+    var connection = DDP.connect(Meteor.absoluteUrl());
+    f.after(function () { if (connection) { connection.disconnect(); } });
+    var id = connection.call('login', { anonymous: true }).id;
+    f.after(function () { if (id) { Meteor.users.remove(id); } });
 
-  test.equal(f.validateSwitchSpy.calls.length, 2, 'validateSwitch calls');
-  test.equal(f.onSwitchSpy.calls.length, 2, 'onSwitch calls');
-  test.equal(f.onSwitchFailureSpy.calls.length, 0, 'onSwitchFailure calls');
-}));
+    test.equal(f.validateSwitchSpy.calls.length, 2, 'validateSwitch calls');
+    test.equal(f.onSwitchSpy.calls.length, 2, 'onSwitch calls');
+    test.equal(f.onSwitchFailureSpy.calls.length, 0, 'onSwitchFailure calls');
+  })
+);
 
-Tinytest.add('AccountsMultiple - Multiple calls to register()', TestWithFixture(function (test) {
-  var f = this; // the fixture we are running in
+Tinytest.add(
+  'AccountsMultiple - Multiple calls to register()',
+  TestWithFixture(function (test) {
+    var f = this; // the fixture we are running in
 
-  // Register some callbacks before
-  var stopper1 = AccountsMultiple.register({
-    validateSwitch: function() { return true; },
-    onSwitch: function() { },
-    onSwitchFailure: function() { }
-  });
-  f.after(function() { stopper1.stop(); } );
+    // Register some callbacks before
+    var stopper1 = AccountsMultiple.register({
+      validateSwitch: function() { return true; },
+      onSwitch: function() { },
+      onSwitchFailure: function() { }
+    });
+    f.after(function() { stopper1.stop(); } );
 
-  // Register the ones we are going to spy one
-  var stopper2 = f.registerSpiedCallbacks(test, {
-    validateSwitch: function() { return true; },
-    onSwitch: function() { },
-    onSwitchFailure: function() { }
-  });
-  f.after(function() { stopper2.stop(); } );
+    // Register the ones we are going to spy one
+    var stopper2 = f.registerSpiedCallbacks(test, {
+      validateSwitch: function() { return true; },
+      onSwitch: function() { },
+      onSwitchFailure: function() { }
+    });
+    f.after(function() { stopper2.stop(); } );
 
-  // Register some more after
-  var stopper3 = AccountsMultiple.register({
-    validateSwitch: function() { return true; },
-    onSwitch: function() { },
-    onSwitchFailure: function() { }
-  });
-  f.after(function() { stopper3.stop(); } );
+    // Register some more after
+    var stopper3 = AccountsMultiple.register({
+      validateSwitch: function() { return true; },
+      onSwitch: function() { },
+      onSwitchFailure: function() { }
+    });
+    f.after(function() { stopper3.stop(); } );
 
-  // The extra callbacks shouldn't have any effect.
-  f.testSwitchingUsersWithOverlap(test);
-  test.equal(f.validateSwitchSpy.calls.length, 2, 'validateSwitch calls');
-  f.checkArgs(test, f.validateSwitchSpy, 'validateSwitch args', 0);
-  test.equal(f.onSwitchSpy.calls.length, 2, 'onSwitch calls');
-  f.checkArgs(test, f.onSwitchSpy, 'onSwitch args', 1);
-  test.equal(f.onSwitchFailureSpy.calls.length, 0, 'onSwitchFailure calls');
-}));
+    // The extra callbacks shouldn't have any effect.
+    f.testSwitchingUsersWithOverlap(test);
+    test.equal(f.validateSwitchSpy.calls.length, 2, 'validateSwitch calls');
+    f.checkArgs(test, f.validateSwitchSpy, 'validateSwitch args', 0);
+    test.equal(f.onSwitchSpy.calls.length, 2, 'onSwitch calls');
+    f.checkArgs(test, f.onSwitchSpy, 'onSwitch args', 1);
+    test.equal(f.onSwitchFailureSpy.calls.length, 0, 'onSwitchFailure calls');
+  })
+);
 
-Tinytest.add('AccountsMultiple - validateSwitch callbacks can override errors thrown by previous callbacks', TestWithFixture(function (test) {
-  var f = this; // the fixture we are running in
+Tinytest.add(
+  'AccountsMultiple - validateSwitch callbacks can override errors',
+  TestWithFixture(function (test) {
+    var f = this; // the fixture we are running in
 
-  // Register some callbacks before
-  var stopper1 = AccountsMultiple.register({
-    validateSwitch: function() { throw new Meteor.Error('test-error-1'); },
-    onSwitch: function() { },
-    onSwitchFailure: function() { }
-  });
-  f.after(function() { stopper1.stop(); } );
+    // Register some callbacks before
+    var stopper1 = AccountsMultiple.register({
+      validateSwitch: function() { throw new Meteor.Error('test-error-1'); },
+      onSwitch: function() { },
+      onSwitchFailure: function() { }
+    });
+    f.after(function() { stopper1.stop(); } );
 
-  // Register the ones we are going to spy one
-  var stopper2 = f.registerSpiedCallbacks(test, {
-    validateSwitch: function() { throw new Meteor.Error('test-error-2'); },
-    onSwitch: function() { },
-    onSwitchFailure: function() { }
-  });
-  f.after(function() { stopper2.stop(); } );
+    // Register the ones we are going to spy one
+    var stopper2 = f.registerSpiedCallbacks(test, {
+      validateSwitch: function() { throw new Meteor.Error('test-error-2'); },
+      onSwitch: function() { },
+      onSwitchFailure: function() { }
+    });
+    f.after(function() { stopper2.stop(); } );
 
-  // The extra callbacks shouldn't have any effect.
-  f.testSwitchingUsersWithOverlap(test, ['test-error-2']);
-  test.equal(f.validateSwitchSpy.calls.length, 2, 'validateSwitch calls');
-  f.checkArgs(test, f.validateSwitchSpy, 'validateSwitch args', 0);
-  test.equal(f.onSwitchFailureSpy.calls.length, 2, 'onSwitchFailure calls');
-  f.checkArgs(test, f.onSwitchFailureSpy, 'onSwitchFailure args', 1);
-}));
+    // The extra callbacks shouldn't have any effect.
+    f.testSwitchingUsersWithOverlap(test, ['test-error-2']);
+    test.equal(f.validateSwitchSpy.calls.length, 2, 'validateSwitch calls');
+    f.checkArgs(test, f.validateSwitchSpy, 'validateSwitch args', 0);
+    test.equal(f.onSwitchFailureSpy.calls.length, 2, 'onSwitchFailure calls');
+    f.checkArgs(test, f.onSwitchFailureSpy, 'onSwitchFailure args', 1);
+  })
+);
 
-Tinytest.add('AccountsMultiple - validateSwitch callback not called when logging in as same user', TestWithFixture(function (test) {
-  var f = this; // the fixture we are running in
+Tinytest.add(
+  'AccountsMultiple - validateSwitch cb not called when same user logs in',
+  TestWithFixture(function (test) {
+    var f = this; // the fixture we are running in
 
-  // Register our callbacks
-  var stopper = f.registerSpiedCallbacks(test, {
-    validateSwitch: function() { return true; },
-    onSwitch: function() { },
-    onSwitchFailure: function() { }
-  });
-  f.after(function() { stopper.stop(); } );
-
-
-  f.connection.call('logout');
-  Meteor.users.remove({'services.test1.name': 'testname'});
-  f.connection.call('login', { test1: 'testname' }).id;
-  f.connection.call('login', { test1: 'testname' }).id;
-
-  // Our callbacks should not have been called because we are still the same user
-  test.equal(f.validateSwitchSpy.calls.length, 0, 'validateSwitch calls');
-  test.equal(f.onSwitchSpy.calls.length, 0, 'onSwitch calls');
-  test.equal(f.onSwitchFailureSpy.calls.length, 0, 'onSwitchFailure calls');
-}));
-
-Tinytest.add('AccountsMultiple - validateSwitch callback not called on when same service', TestWithFixture(function (test) {
-  var f = this; // the fixture we are running in
-
-  // Register our callbacks
-  var stopper = f.registerSpiedCallbacks(test, {
-    validateSwitch: function() { return true; },
-    onSwitch: function() { },
-    onSwitchFailure: function() { }
-  });
-  f.after(function() { stopper.stop(); } );
+    // Register our callbacks
+    var stopper = f.registerSpiedCallbacks(test, {
+      validateSwitch: function() { return true; },
+      onSwitch: function() { },
+      onSwitchFailure: function() { }
+    });
+    f.after(function() { stopper.stop(); } );
 
 
-  f.connection.call('logout');
-  var id = f.connection.call('createUser', { email: 'testuser@example.com', password: 'password' }).id;
-  var id2 = f.connection.call('createUser', { email: 'testuser2@example.com', password: 'password' }).id;
+    f.conn.call('logout');
+    Meteor.users.remove({'services.test1.name': 'testname'});
+    f.conn.call('login', { test1: 'testname' });
+    f.conn.call('login', { test1: 'testname' });
 
-  // Our callbacks should not have been called because we are changing users in
-  // the same service
-  test.equal(f.validateSwitchSpy.calls.length, 0, 'validateSwitch calls');
-  test.equal(f.onSwitchSpy.calls.length, 0, 'onSwitch calls');
-  test.equal(f.onSwitchFailureSpy.calls.length, 0, 'onSwitchFailure calls');
-}));
+    // Callbacks shouldn't have been called because still the same user
+    test.equal(f.validateSwitchSpy.calls.length, 0, 'validateSwitch calls');
+    test.equal(f.onSwitchSpy.calls.length, 0, 'onSwitch calls');
+    test.equal(f.onSwitchFailureSpy.calls.length, 0, 'onSwitchFailure calls');
+  })
+);
+
+Tinytest.add(
+  'AccountsMultiple - validateSwitch callback not called on when same service',
+   TestWithFixture(function (test) {
+    var f = this; // the fixture we are running in
+
+    // Register our callbacks
+    var stopper = f.registerSpiedCallbacks(test, {
+      validateSwitch: function() { return true; },
+      onSwitch: function() { },
+      onSwitchFailure: function() { }
+    });
+    f.after(function() { stopper.stop(); } );
+
+
+    f.conn.call('logout');
+    f.conn.call('createUser',
+      { email: 'testuser@example.com', password: 'password' }
+    );
+    f.conn.call('createUser',
+      { email: 'testuser2@example.com', password: 'password' }
+    );
+
+    // Our callbacks should not have been called because we are changing users
+    // in the same service
+    test.equal(f.validateSwitchSpy.calls.length, 0, 'validateSwitch calls');
+    test.equal(f.onSwitchSpy.calls.length, 0, 'onSwitch calls');
+    test.equal(f.onSwitchFailureSpy.calls.length, 0, 'onSwitchFailure calls');
+  })
+);
 
 Meteor.methods({
   clearUserId: function() {
@@ -307,110 +339,131 @@ Meteor.methods({
   }
 });
 
-Tinytest.add('AccountsMultiple - onSwitch not called for non-switching attempt on previously switching connection', TestWithFixture(function (test) {
-  var f = this; // the fixture we are running in
+Tinytest.add(
+  'AccountsMultiple - onSwitch not called for nonswitching attempt post-switch',
+  TestWithFixture(function (test) {
+    var f = this; // the fixture we are running in
 
-  var stopper = f.registerSpiedCallbacks(test, {
-    validateSwitch: function() { return false; },
-    onSwitch: function() { },
-    onSwitchFailure: function() { }
-  });
-  f.after(function() { stopper.stop(); } );
+    var stopper = f.registerSpiedCallbacks(test, {
+      validateSwitch: function() { return false; },
+      onSwitch: function() { },
+      onSwitchFailure: function() { }
+    });
+    f.after(function() { stopper.stop(); } );
 
-  // The extra callbacks shouldn't have any effect.
-  f.testSwitchingUsersWithOverlap(test, [403]);
-  test.equal(f.validateSwitchSpy.calls.length, 2, 'validateSwitch calls');
-  f.checkArgs(test, f.validateSwitchSpy, 'validateSwitch args', 0);
-  test.equal(f.onSwitchSpy.calls.length, 0, 'onSwitch calls');
-  test.equal(f.onSwitchFailureSpy.calls.length, 2, 'onSwitchFailure calls');
-  f.checkArgs(test, f.onSwitchFailureSpy, 'onSwitchFailure args', 1);
+    // The extra callbacks shouldn't have any effect.
+    f.testSwitchingUsersWithOverlap(test, [403]);
+    test.equal(f.validateSwitchSpy.calls.length, 2, 'validateSwitch calls');
+    f.checkArgs(test, f.validateSwitchSpy, 'validateSwitch args', 0);
+    test.equal(f.onSwitchSpy.calls.length, 0, 'onSwitch calls');
+    test.equal(f.onSwitchFailureSpy.calls.length, 2, 'onSwitchFailure calls');
+    f.checkArgs(test, f.onSwitchFailureSpy, 'onSwitchFailure args', 1);
 
-  // If we clear the userId on the connection and then try to do a bogus login,
-  // onSwitchFailure should not fire because we aren't switching.
-  f.connection.call('clearUserId');
-  try {
-    var id = f.connection.call('login', { /* empty to cause error */ }).id;
-    f.after(function () { id && Meteor.users.remove(id); });
-  } catch (ex) {
-    // Ignore expected error.
-  }
-  test.equal(f.onSwitchFailureSpy.calls.length, 2, 'onSwitchFailure calls on non-switching failing login');
-}));
+    // If we clear the userId on the connection and then try to do a bogus
+    // login, onSwitchFailure should not fire because we aren't switching.
+    f.conn.call('clearUserId');
+    try {
+      var id = f.conn.call('login', { /* empty to cause error */ }).id;
+      f.after(function () { if (id) { Meteor.users.remove(id); } });
+    } catch (ex) {
+      // Ignore expected error.
+    }
+    test.equal(f.onSwitchFailureSpy.calls.length, 2,
+      'onSwitchFailure calls on non-switching failing login');
+  })
+);
 
-Tinytest.add('AccountsMultiple - onSwitch called when validateSwitch not provided', TestWithFixture(function (test) {
-  var f = this; // the fixture we are running in
-  var stopper = f.registerSpiedCallbacks(test, {
-    onSwitch: function() { return; },
-  });
-  f.after(function() { stopper.stop(); } );
-  f.testSwitchingUsersWithOverlap(test);
-  test.equal(f.onSwitchSpy.calls.length, 2, 'onSwitch calls');
-  f.checkArgs(test, f.onSwitchSpy, 'onSwitch args', 1);
-}));
+Tinytest.add(
+  'AccountsMultiple - onSwitch called when validateSwitch not provided',
+  TestWithFixture(function (test) {
+    var f = this; // the fixture we are running in
+    var stopper = f.registerSpiedCallbacks(test, {
+      onSwitch: function() { return; },
+    });
+    f.after(function() { stopper.stop(); } );
+    f.testSwitchingUsersWithOverlap(test);
+    test.equal(f.onSwitchSpy.calls.length, 2, 'onSwitch calls');
+    f.checkArgs(test, f.onSwitchSpy, 'onSwitch args', 1);
+  })
+);
 
-Tinytest.add('AccountsMultiple - onSwitchFailure called when validateSwitch not provided', TestWithFixture(function (test) {
-  var f = this; // the fixture we are running in
-  var stopper = f.registerSpiedCallbacks(test, {
-    onSwitchFailure: function() { return; },
-  });
-  f.after(function() { stopper.stop(); } );
+Tinytest.add(
+  'AccountsMultiple - onSwitchFailure called when validateSwitch not provided',
+  TestWithFixture(function (test) {
+    var f = this; // the fixture we are running in
+    var stopper = f.registerSpiedCallbacks(test, {
+      onSwitchFailure: function() { return; },
+    });
+    f.after(function() { stopper.stop(); } );
 
-  var validateLoginStopper = Accounts.validateLoginAttempt(function () { return false; });
-  f.after(function() { validateLoginStopper.stop(); })
+    var validateLoginStopper =
+      Accounts.validateLoginAttempt(function () { return false; });
+    f.after(function() { validateLoginStopper.stop(); });
 
-  f.testSwitchingUsersWithOverlap(test, [403]);
+    f.testSwitchingUsersWithOverlap(test, [403]);
 
-  test.equal(f.onSwitchFailureSpy.calls.length, 2, 'onSwitchFailure calls');
-  f.checkArgs(test, f.onSwitchFailureSpy, 'onSwitchFailure args', 1);
-}));
+    test.equal(f.onSwitchFailureSpy.calls.length, 2, 'onSwitchFailure calls');
+    f.checkArgs(test, f.onSwitchFailureSpy, 'onSwitchFailure args', 1);
+  })
+);
 
-Tinytest.add('AccountsMultiple - onSwitch called when validateSwitch returns true', TestWithFixture(function (test) {
-  var f = this; // the fixture we are running in
-  var stopper = f.registerSpiedCallbacks(test, {
-    validateSwitch: function() { return true; },
-    onSwitch: function() { return; },
-    onSwitchFailure: function() { return; }
-  });
-  f.after(function() { stopper.stop(); } );
-  f.testSwitchingUsersWithOverlap(test);
-  test.equal(f.validateSwitchSpy.calls.length, 2, 'validateSwitch calls');
-  f.checkArgs(test, f.validateSwitchSpy, 'validateSwitch args', 0);
-  test.equal(f.onSwitchSpy.calls.length, 2, 'onSwitch calls');
-  f.checkArgs(test, f.onSwitchSpy, 'onSwitch args', 1);
-  test.equal(f.onSwitchFailureSpy.calls.length, 0, 'onSwitchFailure calls');
-}));
+Tinytest.add(
+  'AccountsMultiple - onSwitch called when validateSwitch returns true',
+  TestWithFixture(function (test) {
+    var f = this; // the fixture we are running in
+    var stopper = f.registerSpiedCallbacks(test, {
+      validateSwitch: function() { return true; },
+      onSwitch: function() { return; },
+      onSwitchFailure: function() { return; }
+    });
+    f.after(function() { stopper.stop(); } );
+    f.testSwitchingUsersWithOverlap(test);
+    test.equal(f.validateSwitchSpy.calls.length, 2, 'validateSwitch calls');
+    f.checkArgs(test, f.validateSwitchSpy, 'validateSwitch args', 0);
+    test.equal(f.onSwitchSpy.calls.length, 2, 'onSwitch calls');
+    f.checkArgs(test, f.onSwitchSpy, 'onSwitch args', 1);
+    test.equal(f.onSwitchFailureSpy.calls.length, 0, 'onSwitchFailure calls');
+  })
+);
 
-Tinytest.add('AccountsMultiple - onSwitchFailed called when validateSwitch returns false', TestWithFixture(function (test) {
-  var f = this; // the fixture we are running in
-  var stopper = f.registerSpiedCallbacks(test, {
-     validateSwitch: function() { return false; },
-     onSwitch: function() { return; },
-     onSwitchFailure: function() { return; }
-  });
-  f.after(function() { stopper.stop(); } );
-  f.testSwitchingUsersWithOverlap(test, [403]);
-  test.equal(f.validateSwitchSpy.calls.length, 2, 'validateSwitch calls');
-  f.checkArgs(test, f.validateSwitchSpy, 'validateSwitch args', 0);
-  test.equal(f.onSwitchSpy.calls.length, 0, 'onSwitch calls');
-  test.equal(f.onSwitchFailureSpy.calls.length, 2, 'onSwitchFailure calls');
-  f.checkArgs(test, f.onSwitchFailureSpy, 'onSwitchFailure args', 1);
-}));
+Tinytest.add(
+  'AccountsMultiple - onSwitchFailed called when validateSwitch returns false',
+  TestWithFixture(function (test) {
+    var f = this; // the fixture we are running in
+    var stopper = f.registerSpiedCallbacks(test, {
+       validateSwitch: function() { return false; },
+       onSwitch: function() { return; },
+       onSwitchFailure: function() { return; }
+    });
+    f.after(function() { stopper.stop(); } );
+    f.testSwitchingUsersWithOverlap(test, [403]);
+    test.equal(f.validateSwitchSpy.calls.length, 2, 'validateSwitch calls');
+    f.checkArgs(test, f.validateSwitchSpy, 'validateSwitch args', 0);
+    test.equal(f.onSwitchSpy.calls.length, 0, 'onSwitch calls');
+    test.equal(f.onSwitchFailureSpy.calls.length, 2, 'onSwitchFailure calls');
+    f.checkArgs(test, f.onSwitchFailureSpy, 'onSwitchFailure args', 1);
+  })
+);
 
-Tinytest.add('AccountsMultiple - onSwitchFailed called when validateSwitch throws', TestWithFixture(function (test) {
-  var f = this; // the fixture we are running in
-  var stopper = f.registerSpiedCallbacks(test, {
-    validateSwitch: function() { throw new Meteor.Error('test-error', ''); },
-    onSwitch: function() { return; },
-    onSwitchFailure: function() { return; }
-  });
-  f.after(function() { stopper.stop(); } );
-  f.testSwitchingUsersWithOverlap(test, ['test-error']);
-  test.equal(f.validateSwitchSpy.calls.length, 2, 'validateSwitch calls');
-  f.checkArgs(test, f.validateSwitchSpy, 'validateSwitch args', 0);
-  test.equal(f.onSwitchSpy.calls.length, 0, 'onSwitch calls');
-  test.equal(f.onSwitchFailureSpy.calls.length, 2, 'onSwitchFailure calls');
-  f.checkArgs(test, f.onSwitchFailureSpy, 'onSwitchFailure args', 1);
-  var actualAttemptError = f.onSwitchFailureSpy.calls[1].args[1].error;
-  test.isNotNull(actualAttemptError, 'onSwitchFailure error');
-  test.equal(actualAttemptError.error, 'test-error', 'onSwitchFailure error string');
-}));
+Tinytest.add(
+  'AccountsMultiple - onSwitchFailed called when validateSwitch throws',
+  TestWithFixture(function (test) {
+    var f = this; // the fixture we are running in
+    var stopper = f.registerSpiedCallbacks(test, {
+      validateSwitch: function() { throw new Meteor.Error('test-error', ''); },
+      onSwitch: function() { return; },
+      onSwitchFailure: function() { return; }
+    });
+    f.after(function() { stopper.stop(); } );
+    f.testSwitchingUsersWithOverlap(test, ['test-error']);
+    test.equal(f.validateSwitchSpy.calls.length, 2, 'validateSwitch calls');
+    f.checkArgs(test, f.validateSwitchSpy, 'validateSwitch args', 0);
+    test.equal(f.onSwitchSpy.calls.length, 0, 'onSwitch calls');
+    test.equal(f.onSwitchFailureSpy.calls.length, 2, 'onSwitchFailure calls');
+    f.checkArgs(test, f.onSwitchFailureSpy, 'onSwitchFailure args', 1);
+    var actualAttemptError = f.onSwitchFailureSpy.calls[1].args[1].error;
+    test.isNotNull(actualAttemptError, 'onSwitchFailure error');
+    test.equal(actualAttemptError.error, 'test-error',
+      'onSwitchFailure error string');
+  })
+);

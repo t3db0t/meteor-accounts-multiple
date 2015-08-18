@@ -1,3 +1,5 @@
+"use strict";
+
 Package.describe({
   name: 'brettle:accounts-multiple',
   version: '0.2.0',

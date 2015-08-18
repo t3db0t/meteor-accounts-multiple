@@ -12,9 +12,7 @@ different service.
 
 - Works with any login service (accounts-password, acccounts-google, etc.)
 
-- Works with accounts-ui and other similar packages.
-
-- Does not permanently monkey patch Meteor core.
+- Works with `accounts-ui` and other similar packages.
 
 ## Installation
 ```sh
@@ -27,9 +25,9 @@ meteor add brettle:accounts-multiple
 /* Register callbacks for handling when a logged in user
   attempts to login using a different service. */
 AccountsMultiple.register({
-  validateSwitch: validateSwitchCallback,  /* default: function() {return true;} */
+  validateSwitch: validateSwitchCallback,  /* default: function () { return true; } */
   onSwitch: onSwitchCallback, /* default: function() {} */
-  onSwitchFailure: onSwitchFailureCallback /* default: function() {} */
+  onSwitchFailure: onSwitchFailureCallback /* default: function () {} */
 });
 
 /* Works just like Accounts.validateLoginAttempt() except that the attempting
