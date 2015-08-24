@@ -5,9 +5,13 @@
 Supports handling the case where a logged in user attempts to login using a
 different service.
 
+This package is part of the `brettle:accounts-*` suite of packages. See
+[`brettle:accounts-deluxe`](https://atmospherejs.com/brettle/accounts-deluxe)
+for an overview of the suite and a live demo.
+
 ## Features
 
-- Allows you to register a set of callbacks that are run when a logged in user
+- Allows you to register a set of callbacks to run when a logged in user
   attempts to login using a different service.
 
 - Works with any login service (accounts-password, acccounts-google, etc.)
@@ -33,7 +37,7 @@ AccountsMultiple.register({
 /* Works just like Accounts.validateLoginAttempt() except that the attempting
 /* user is available. */
 function validateSwitchCallback(attemptingUser, attempt) {
-  if (/*attemptingUser is allowed to switch to attempt.user */) {
+  if (/*attemptingUser may switch to attempt.user */) {
     return true;
   } else {
     throw new Meteor.Error('your-reason-code', 'Human readable reason');
@@ -41,14 +45,14 @@ function validateSwitchCallback(attemptingUser, attempt) {
   }
 }
 
-/* Works just like Accounts.onLogin() callback except it is only called when a
-/* logged in user successfully logs in using a different service, and it
-/* provides the original logged in user (attemptingUser). */
+/* Works just like Accounts.onLogin() callback except it's sole called when a
+/* logged in user logs in using a different service, and it provides the
+/* original logged in user (attemptingUser). */
 function onSwitchCallback(attemptingUser, attempt) {
   /* Maybe cleanup the original user, or merge the two users. */
 }
 
-/* Works just like Accounts.onLoginFailure() callback except it is only called
+/* Works just like Accounts.onLoginFailure() callback except it's sole called
 /* when a logged in user fails when logging in using a different service, and it
 /* provides the attempting user. */
 function onSwitchFailureCallback(attemptingUser, attempt) {
