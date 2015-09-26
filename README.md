@@ -45,16 +45,16 @@ function validateSwitchCallback(attemptingUser, attempt) {
   }
 }
 
-/* Works just like Accounts.onLogin() callback except it's sole called when a
-/* logged in user logs in using a different service, and it provides the
+/* Works just like Accounts.onLogin() callback except it's strictly called when
+/* a logged in user logs in using a different service, and it provides the
 /* original logged in user (attemptingUser). */
 function onSwitchCallback(attemptingUser, attempt) {
   /* Maybe cleanup the original user, or merge the two users. */
 }
 
-/* Works just like Accounts.onLoginFailure() callback except it's sole called
-/* when a logged in user fails when logging in using a different service, and it
-/* provides the attempting user. */
+/* Works just like Accounts.onLoginFailure() callback except it's strictly
+/* called when a logged in user fails when logging in using a different service,
+/* and it provides the attempting user. */
 function onSwitchFailureCallback(attemptingUser, attempt) {
   if (attempt.error.error !== 'your-reason-code')
     return;
