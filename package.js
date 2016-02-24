@@ -1,10 +1,10 @@
 "use strict";
 
 Package.describe({
-  name: 'brettle:accounts-multiple',
-  version: '0.3.1',
+  name: 't3db0t:accounts-multiple',
+  version: '0.3.2',
   summary: 'Handles users that login with multiple services.',
-  git: 'https://github.com/brettle/meteor-accounts-multiple.git',
+  git: 'https://github.com/t3db0t/meteor-accounts-multiple.git',
   documentation: 'README.md'
 });
 

@@ -1,6 +1,8 @@
 /* globals AccountsMultiple: true */
 "use strict";
 
+console.log("t3db0t:accounts-multiple");
+
 AccountsMultiple = {
   _stoppers: []
 };
@@ -35,9 +37,10 @@ AccountsMultiple.register = function(cbs) {
   if (cbs.validateSwitch || cbs.onSwitch || cbs.onSwitchFailure) {
     // Use an empty validateSwitch callback if necessary
     var cb = cbs.validateSwitch || function () { return true; };
+    var noUserCB = cbs.onNoAttemptingUser || function () { return true; };
     // Workaround a meteor bug when adding the validateLoginAttempt handler
       validateLoginStopper =
-        Accounts.validateLoginAttempt(createValidateLoginAttemptHandler(cb));
+        Accounts.validateLoginAttempt(createValidateLoginAttemptHandler(cb, noUserCB));
   }
   if (cbs.onSwitch) {
     onLoginStopper = Accounts.onLogin(function(attempt) {
@@ -74,7 +77,7 @@ AccountsMultiple._unregisterAll = function() {
   AccountsMultiple._stoppers = [];
 };
 
-function createValidateLoginAttemptHandler(validateSwitchCallback) {
+function createValidateLoginAttemptHandler(validateSwitchCallback, noUserCB) {
   return function (attempt) {
     // Don't do anything if the login handler can't even provide a user object
     // or a method name.
@@ -85,6 +88,8 @@ function createValidateLoginAttemptHandler(validateSwitchCallback) {
     var attemptingUser = AttemptingUser.get(attempt);
 
     if (! attemptingUser) {
+      if(!noUserCB(attempt)) return false;
+      
       var attemptingUserId = Meteor.userId();
 
       // Don't do anything if there is no user currently logged in or they are
