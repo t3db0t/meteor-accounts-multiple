@@ -14,6 +14,8 @@ for an overview of the suite and a live demo.
 - Allows you to register a set of callbacks to run when a logged in user
   attempts to login using a different service.
 
+- Optional callback to run when there's no user already.
+
 - Works with any login service (accounts-password, acccounts-google, etc.)
 
 - Works with `accounts-ui` and other similar packages.

@@ -1,8 +1,6 @@
 /* globals AccountsMultiple: true */
 "use strict";
 
-console.log("t3db0t:accounts-multiple");
-
 AccountsMultiple = {
   _stoppers: []
 };
@@ -88,9 +86,12 @@ function createValidateLoginAttemptHandler(validateSwitchCallback, noUserCB) {
     var attemptingUser = AttemptingUser.get(attempt);
 
     if (! attemptingUser) {
-      if(!noUserCB(attempt)) return false;
-      
       var attemptingUserId = Meteor.userId();
+
+      // Check the noAttemptingUser callback
+      if(!attemptingUserId){
+        if(!noUserCB(attempt)) return false;
+      }
 
       // Don't do anything if there is no user currently logged in or they are
       // attempting to login as themselves.
